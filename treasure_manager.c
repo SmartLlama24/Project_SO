@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <dirent.h>
+#include <errno.h>  
 
 typedef struct treasure{
     int ID;
@@ -16,19 +17,40 @@ typedef struct treasure{
 } treasure;
 
 void add(char huntID[7]){
-    char* buff = calloc(1,sizeof(treasure));
+    char* buf = calloc(1,sizeof(treasure));
     treasure t;
 
     do{
         printf("\nTreasure format: treasureID username latitude longitude clue value\nInput new treasure:\n\n");
-        fgets(buff,200,stdin);
-    }while(sscanf(buff,"%d %s %f %f %s %d",&t.ID,&t.username,&t.lat,&t.lng,&t.clue,&t.value) != 6);
+        fgets(buf,200,stdin);
+    }while(sscanf(buf,"%d %s %f %f %s %d",&t.ID,&t.username,&t.lat,&t.lng,&t.clue,&t.value) != 6);
+
+    free(buf);
 
     char dirPath[13] = "Hunts/";
     char filePath[27] = "";
+    char logPath[29] = "";
+    char linkPath[34] = "logged_hunt_";
 
+    strcpy(logPath,dirPath);
+    strcat(logPath,huntID);
+    strcat(logPath,"/logged_hunt.txt");
+    strcat(linkPath,huntID);
+    strcat(linkPath,".txt");
     strcat(dirPath,huntID);
-    mkdir(dirPath,0777);
+
+    int check = mkdir(dirPath,0777);
+    int log = open(logPath, O_WRONLY | O_CREAT | O_APPEND, 0666);
+
+    if(check == 0){
+        int x = symlink(logPath,linkPath);
+        write(log,"Created hunt",sizeof("Created hunt"));
+    }
+    else {
+        write(log,"Added treasure",sizeof("Added treasure"));
+    }
+
+    close(log);
 
     strcpy(filePath,dirPath);
     strcat(filePath,"/Treasures.bin");
@@ -47,9 +69,12 @@ void addTreasure(char* filePath,treasure t){
 
 void list(char huntID[7]){
     char filePath[27] = "Hunts/";
+    char logPath[30] = "";
     struct stat st;
 
     strcat(filePath,huntID);
+    strcpy(logPath,filePath);
+    strcat(logPath,"/logged_hunt.txt");
     strcat(filePath,"/Treasures.bin");
 
     int file = open(filePath, O_RDONLY);
@@ -68,13 +93,20 @@ void list(char huntID[7]){
         printf("%d %s %f %f %s %d\n",t.ID,t.username,t.lat,t.lng,t.clue,t.value);
     }
 
+    int log = open(logPath, O_WRONLY | O_APPEND);
+    write(log,"Listed hunt",sizeof("Listed hunt"));
+    close(log);
+
     close(file);
 }
 
 void view(char huntID[7],int treasureID){
     char filePath[27] = "Hunts/";
+    char logPath[30] = "";
 
     strcat(filePath,huntID);
+    strcpy(logPath,filePath);
+    strcat(logPath,"/logged_hunt.txt");
     strcat(filePath,"/Treasures.bin");
 
     int file = open(filePath, O_RDONLY);
@@ -91,6 +123,10 @@ void view(char huntID[7],int treasureID){
 
     if(t.ID == treasureID){
         printf("%d %s %f %f %s %d\n",t.ID,t.username,t.lat,t.lng,t.clue,t.value);
+
+        int log =open(logPath, O_WRONLY | O_APPEND);
+        write(log,"Viewed treasure",sizeof("Viewed treasure"));
+        close(log);
     } 
     else {
         printf("Hunt does not contain specified treasure\n");
@@ -100,9 +136,14 @@ void view(char huntID[7],int treasureID){
 }
 
 void remove_treasure(char huntID[7],int treasureID){
+    int trigger = 0;
     char filePath[27] = "Hunts/";
+    char logPath[30] = "";
 
     strcat(filePath,huntID);
+    strcpy(logPath,filePath);
+    strcat(logPath,"/logged_hunt.txt");
+
     char newFilePath [30];
     strcpy(newFilePath,filePath);
     strcat(filePath,"/Treasures.bin");
@@ -120,23 +161,42 @@ void remove_treasure(char huntID[7],int treasureID){
 
     while(read(fileOld,&t,sizeof(treasure)) != 0){
         if(t.ID != treasureID){
+            if(trigger == 1) t.ID--;
             addTreasure(newFilePath,t);
         }
+        else trigger = 1;
     }
 
     unlink(filePath);
     rename(newFilePath,filePath);
+
+    if(trigger){ 
+        printf("Removed treasure\n");
+
+        int log = open(logPath, O_WRONLY | O_APPEND);
+        write(log,"Removed treasure",sizeof("Removed treasure"));
+        close(log);
+    }
+    else printf("Treasure does not exist in hunt\n");
 }
 
 void remove_hunt(char huntID[7]){
     char dirPath[13] = "Hunts/";
+    char buf[100] = "                   ";
+    char linkPath[100] = "";
+
+    strcat(linkPath,"logged_hunt_");
     strcat(dirPath,huntID);
+    strcat(linkPath,huntID);
+    strcat(linkPath,".txt");
 
     DIR *dir = opendir(dirPath);
     if(!dir){
         printf("Hunt does not exist\n");
         return;
     }
+
+    unlink(linkPath);
 
     struct dirent *entry;
     char filePath[100];
@@ -156,6 +216,35 @@ void remove_hunt(char huntID[7]){
 int main(int argc, char* argv[]){
     mkdir("Hunts",0777);
 
+    if(argc == 1) {
+        printf("Program functions:\n--add <hunt_id>\n--list <hunt_id>\n--view <hunt_id> <treasure_id>\n--remove_treasure <hunt_id> <treasure_id>\n--remove_hunt <hunt_id>\nHunt ID template: HuntXXX\n\n");
+    }
+    else {
+        if(strcmp(argv[1],"--add") == 0){
+            if(argc < 3) printf("Missing arguments\n\n");
+            else add(argv[2]);
+        }
     
+        if(strcmp(argv[1],"--list") == 0){
+            if(argc < 3) printf("Missing arguments\n\n");
+            else list(argv[2]);
+        }
+    
+        if(strcmp(argv[1],"--view") == 0){
+            if(argc < 4) printf("Missing arguments\n\n");
+            else view(argv[2],atoi(argv[3]));
+        }
+    
+        if(strcmp(argv[1],"--remove_treasure") == 0){
+            if(argc < 4) printf("Missing arguments\n\n");
+            else remove_treasure(argv[2],atoi(argv[3]));
+        }
+    
+        if(strcmp(argv[1],"--remove_hunt") == 0){
+            if(argc < 3) printf("Missing arguments\n\n");
+            else remove_hunt(argv[2]);
+        }
+
+    }
 
 }
