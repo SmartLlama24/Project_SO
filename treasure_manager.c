@@ -90,7 +90,7 @@ void list(char huntID[7]){
     treasure t;
 
     while(read(file,&t,sizeof(treasure)) != 0){
-        printf("%d %s %f %f %s %d\n",t.ID,t.username,t.lat,t.lng,t.clue,t.value);
+        printf("\nTreasure ID: %d\nUsername: %s\nLatitude: %f\nLongitude: %f\nClue: %s\nValue: %d\n\n",t.ID,t.username,t.lat,t.lng,t.clue,t.value);
     }
 
     int log = open(logPath, O_WRONLY | O_APPEND);
@@ -122,7 +122,7 @@ void view(char huntID[7],int treasureID){
     }
 
     if(t.ID == treasureID){
-        printf("%d %s %f %f %s %d\n",t.ID,t.username,t.lat,t.lng,t.clue,t.value);
+        printf("\nTreasure ID: %d\nUsername: %s\nLatitudeL %f\nLongitude: %f\nClue: %s\nValue: %d\n\n",t.ID,t.username,t.lat,t.lng,t.clue,t.value);
 
         int log =open(logPath, O_WRONLY | O_APPEND);
         write(log,"Viewed treasure",sizeof("Viewed treasure"));
