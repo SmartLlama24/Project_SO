@@ -61,6 +61,19 @@ void process_command(const char *cmd) {
         system(syscmd);
     }
 
+    else if (strncmp(cmd, "calculate_score", 15) == 0) {
+        system(
+            "for dir in Hunts/* ; do "
+            "if [ -d \"$dir\" ]; then "
+            "hunt_id=$(basename \"$dir\"); "
+            "score=$(./treasure_manager --list \"$hunt_id\" 2>/dev/null | "
+            "grep 'Value:' | sed -n 's/.*Value: \\([0-9]*\\).*/\\1/p' | awk '{sum+=$1} END {print sum+0}'); "
+            "echo \"$hunt_id: $score points\"; "
+            "fi; "
+            "done"
+        );
+    }
+
     else {
         printf("[Monitor] Unknown command.\n");
     }
